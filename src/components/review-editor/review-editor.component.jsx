@@ -1,42 +1,124 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { connect } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import { createStructuredSelector } from 'reselect';
+
 import { selectCurrentUser } from '../../redux/user/user.selectors';
-import Rating from '@material-ui/lab/Rating';
-import { makeStyles } from '@material-ui/core/styles';
-import './review-editor.styles.scss';
-import TextareaAutosize from '@material-ui/core/TextareaAutosize';
-import Button from '@material-ui/core/Button';
+import {
+  createReviewStart,
+  updateReviewStart
+} from '../../redux/review/review.actions';
 
-const useStyles = makeStyles({
-  root: {
-    width: 200,
-    display: 'flex',
-    alignItems: 'center',
-  },
- 
-});
+import CustomButton from '../custom-button/custom-button.component';
 
-const ReviewEditor = ({ currentUser }) => {
-  const classes = useStyles();
-  return currentUser ? (
-    <form className='review-editor'>
-      <br/>
-      <div>
-      <TextareaAutosize aria-label="minimum height" rowsMin={6} placeholder="Please enter a review" />
-      </div>
-      <br/>
-      <div className={classes.root}>
-      <Rating name="half-rating" max={10} defaultValue={5} precision={0.5} size="large"/>
-      </div>
-      <br/>
-      <Button variant="contained"color="primary"> Send </Button>
+import { Rating } from '@material-ui/lab';
+import { StarBorder } from '@material-ui/icons';
+
+import {
+  ReviewEditorContainer,
+  CommentBox,
+  OptionBar,
+  RatingAndLabel,
+  Label
+} from './review-editor.styles';
+
+const ReviewEditor = ({
+  isEditing,
+  onFinish,
+  createReviewStart,
+  updateReviewStart,
+  currentUser,
+  currentUsersReview,
+  width
+}) => {
+  const [hover, setHover] = React.useState(-1);
+
+  const [review, setReview] = useState({
+    comment: currentUsersReview ? currentUsersReview.comment : '',
+    rating: currentUsersReview ? currentUsersReview.rating : 10
+  });
+
+  const { comment, rating } = review;
+
+  const { movieId } = useParams();
+
+  const handleChange = event => {
+    const { name, value } = event.target;
+    setReview({
+      ...review,
+      [name]: name === 'rating' ? parseFloat(value) : value
+    });
+  };
+
+  const handleSubmit = async event => {
+    const { id: userId, displayName, photoURL } = currentUser;
+
+    event.preventDefault();
+
+    if (!isEditing)
+      createReviewStart(movieId, {
+        userId,
+        displayName,
+        photoURL,
+        comment,
+        rating,
+        isSpoiler: false
+      });
+    else {
+      updateReviewStart(movieId, {
+        id: currentUsersReview.id,
+        comment,
+        rating,
+        isSpoiler: false
+      });
+
+      onFinish();
+    }
+
+    setReview({ ...review, comment: '', rating: 0 });
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <ReviewEditorContainer width={width}>
+        <CommentBox
+          className='comment-box'
+          name='comment'
+          value={comment}
+          onChange={handleChange}
+          placeholder='Leave a comment here...'
+        />
+        <OptionBar>
+          <RatingAndLabel>
+            <Rating
+              name='rating'
+              value={rating}
+              max={10}
+              precision={0.5}
+              emptyIcon={<StarBorder fontSize='inherit' />}
+              onChange={handleChange}
+              onChangeActive={(event, newHover) => {
+                setHover(newHover);
+              }}
+            />
+            <Label>{hover !== -1 ? hover : rating}</Label>
+          </RatingAndLabel>
+          <CustomButton>Post</CustomButton>
+        </OptionBar>
+      </ReviewEditorContainer>
     </form>
-  ) : null;
+  );
 };
 
 const mapStateToProps = createStructuredSelector({
   currentUser: selectCurrentUser
 });
 
-export default connect(mapStateToProps)(ReviewEditor);
+const mapDispatchToProps = dispatch => ({
+  createReviewStart: (movieId, review) =>
+    dispatch(createReviewStart(movieId, review)),
+  updateReviewStart: (movieId, review) =>
+    dispatch(updateReviewStart(movieId, review))
+});
+
+export default connect(mapStateToProps, mapDispatchToProps)(ReviewEditor);

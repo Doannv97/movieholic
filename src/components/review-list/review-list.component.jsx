@@ -1,44 +1,51 @@
 import React, { useEffect } from 'react';
-import { withRouter } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { connect } from 'react-redux';
-import { createStructuredSelector } from 'reselect';
 
-import { fetchReviewsStart } from '../../redux/review/review.actions';
+import { selectCurrentUser } from '../../redux/user/user.selectors';
 import {
-  selectReviews,
-  selectIsReviewsLoaded
+  selectMovieId,
+  selectOtherUsersReview
 } from '../../redux/review/review.selectors';
+import { fetchReviewsStart } from '../../redux/review/review.actions';
 
 import Review from '../review/review.component';
 
-import './review-list.styles.scss';
+import { ReviewListContainer } from './review-list.styles';
 
-const ReviewList = ({ isLoaded, match, reviews, fetchReviewsStart }) => {
-  const { movieId } = match.params;
+const ReviewList = ({
+  currentUser,
+  fetchedMovieId,
+  getOtherUsersReviews,
+  fetchReviewsStart
+}) => {
+  const { movieId } = useParams();
+
+  const currentUserId = currentUser ? currentUser.id : '';
+
+  const reviews = getOtherUsersReviews([currentUserId]);
 
   useEffect(() => {
-    if (!isLoaded) fetchReviewsStart(movieId);
+    if (fetchedMovieId !== movieId) fetchReviewsStart(movieId);
   });
 
   return (
-    <div className='review-list'>
-      <h2>Review list</h2>
+    <ReviewListContainer>
       {reviews.map(({ id, ...otherCollectionProps }) => (
         <Review key={id} id={id} {...otherCollectionProps} />
       ))}
-    </div>
+    </ReviewListContainer>
   );
 };
 
-const mapStateToProps = createStructuredSelector({
-  isLoaded: selectIsReviewsLoaded,
-  reviews: selectReviews
+const mapStateToProps = state => ({
+  currentUser: selectCurrentUser(state),
+  fetchedMovieId: selectMovieId(state),
+  getOtherUsersReviews: userIds => selectOtherUsersReview(userIds)(state)
 });
 
 const mapDispatchToProps = dispatch => ({
   fetchReviewsStart: movieId => dispatch(fetchReviewsStart(movieId))
 });
 
-export default withRouter(
-  connect(mapStateToProps, mapDispatchToProps)(ReviewList)
-);
+export default connect(mapStateToProps, mapDispatchToProps)(ReviewList);
